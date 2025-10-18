@@ -36,8 +36,12 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()  // Allow auth endpoints without authentication
-                        .anyRequest().authenticated()                 // All other endpoints require authentication
+                        .requestMatchers("/api/auth/**").permitAll()           // Auth endpoints
+                        .requestMatchers("/api/*/test").permitAll()            // All test endpoints
+                        .requestMatchers("/api/organizations/**").authenticated() // Organization endpoints require auth
+                        .requestMatchers("/api/departments/**").authenticated()   // Department endpoints require auth
+                        .requestMatchers("/api/users/**").authenticated()        // User endpoints require auth
+                        .anyRequest().authenticated()                            // All other endpoints require auth
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
