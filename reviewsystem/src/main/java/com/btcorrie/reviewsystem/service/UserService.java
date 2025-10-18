@@ -92,7 +92,7 @@ public class UserService {
     }
 
     // Get user by ID - Users can see their own profile, managers can see direct reports, admins can see anyone
-    @PreAuthorize("#userId == authentication.principal.id or @userService.isMyDirectReport(#userId) or hasRole('HR_ADMIN') or hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("@userService.canAccessUser(#userId) or hasRole('HR_ADMIN') or hasRole('SYSTEM_ADMIN')")
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
@@ -121,7 +121,7 @@ public class UserService {
     }
 
     // Update own profile - Users can update their own basic info (not role/department)
-    @PreAuthorize("#userId == authentication.principal.id")
+    @PreAuthorize("@userService.isCurrentUser(#userId)")
     public UserResponse updateOwnProfile(Long userId, UserUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
@@ -135,6 +135,15 @@ public class UserService {
         // Don't allow self-update of role, active status, department, or manager
 
         return updateUserInternal(user, limitedRequest);
+    }
+
+    // Check if the userId matches the current authenticated user
+    public boolean isCurrentUser(Long userId) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        return currentUser.getId().equals(userId);
     }
 
     // Get users in my department - Managers can see users in their managed departments
@@ -248,6 +257,21 @@ public class UserService {
     }
 
     // PRIVATE HELPER METHODS
+
+    // Check if current user can access the target user (self or direct report)
+    public boolean canAccessUser(Long userId) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        // Can access own profile
+        if (currentUser.getId().equals(userId)) {
+            return true;
+        }
+
+        // Can access direct reports
+        return isMyDirectReport(userId);
+    }
 
     private UserResponse updateUserInternal(User user, UserUpdateRequest request) {
         // Update username if provided and not duplicate
