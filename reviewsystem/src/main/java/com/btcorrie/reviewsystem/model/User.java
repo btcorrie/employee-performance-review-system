@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -50,11 +51,46 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    // NEW RELATIONSHIPS
+
+    // Many users belong to one department
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    // Self-referential relationship: Many users can have one manager
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id")
+    private User manager;
+
+    // One user can manage many users (reverse of manager relationship)
+    @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<User> directReports;
+
+    // One user can manage many departments
+    @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Department> managedDepartments;
+
     // Enum for user roles
     public enum Role {
-        EMPLOYEE,
-        MANAGER,
-        HR_ADMIN,
-        SYSTEM_ADMIN
+        EMPLOYEE,      // Can view own profile and reviews
+        MANAGER,       // Can manage direct reports and create reviews
+        HR_ADMIN,      // Can view all users and manage departments
+        SYSTEM_ADMIN   // Full system access
+    }
+
+    // Helper method to get full name
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
+
+    // Helper method to check if user is a manager
+    public boolean isManager() {
+        return role == Role.MANAGER || role == Role.HR_ADMIN || role == Role.SYSTEM_ADMIN;
+    }
+
+    // Helper method to check if user has admin privileges
+    public boolean isAdmin() {
+        return role == Role.HR_ADMIN || role == Role.SYSTEM_ADMIN;
     }
 }
