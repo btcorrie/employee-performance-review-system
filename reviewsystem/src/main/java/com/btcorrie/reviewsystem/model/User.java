@@ -52,8 +52,6 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    // EXISTING RELATIONSHIPS
-
     // Many users belong to one department
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
@@ -71,8 +69,6 @@ public class User {
     // One user can manage many departments
     @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Department> managedDepartments;
-
-    // PERFORMANCE TRACKING FIELDS
 
     // Overall performance rating (1-5 scale, null if never reviewed)
     @Column(name = "current_performance_rating")
