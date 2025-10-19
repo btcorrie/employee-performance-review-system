@@ -3,6 +3,7 @@ package com.btcorrie.reviewsystem.service;
 import com.btcorrie.reviewsystem.dto.UserCreateRequest;
 import com.btcorrie.reviewsystem.dto.UserResponse;
 import com.btcorrie.reviewsystem.dto.UserUpdateRequest;
+import com.btcorrie.reviewsystem.dto.UserPerformanceUpdateRequest;
 import com.btcorrie.reviewsystem.model.Department;
 import com.btcorrie.reviewsystem.model.User;
 import com.btcorrie.reviewsystem.repository.DepartmentRepository;
@@ -17,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -137,15 +139,6 @@ public class UserService {
         return updateUserInternal(user, limitedRequest);
     }
 
-    // Check if the userId matches the current authenticated user
-    public boolean isCurrentUser(Long userId) {
-        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
-
-        return currentUser.getId().equals(userId);
-    }
-
     // Get users in my department - Managers can see users in their managed departments
     @PreAuthorize("hasRole('MANAGER') or hasRole('HR_ADMIN') or hasRole('SYSTEM_ADMIN')")
     @Transactional(readOnly = true)
@@ -192,6 +185,48 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    // Update user performance - Only managers can update performance for direct reports
+    @PreAuthorize("@userService.isMyDirectReport(#userId) or hasRole('HR_ADMIN') or hasRole('SYSTEM_ADMIN')")
+    public UserResponse updateUserPerformance(Long userId, UserPerformanceUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        // Update performance fields
+        if (request.getCurrentPerformanceRating() != null) {
+            user.setCurrentPerformanceRating(request.getCurrentPerformanceRating());
+        }
+
+        if (request.getLastReviewNotes() != null) {
+            user.setLastReviewNotes(request.getLastReviewNotes());
+        }
+
+        if (request.getLastReviewDate() != null) {
+            user.setLastReviewDate(request.getLastReviewDate());
+        } else if (request.getCurrentPerformanceRating() != null || request.getLastReviewNotes() != null) {
+            // Auto-set review date if rating or notes are provided
+            user.setLastReviewDate(LocalDate.now());
+        }
+
+        if (request.getCurrentGoals() != null) {
+            user.setCurrentGoals(request.getCurrentGoals());
+        }
+
+        User updatedUser = userRepository.save(user);
+        return convertToResponse(updatedUser);
+    }
+
+    // Get performance summary for manager's team
+    @PreAuthorize("hasRole('MANAGER') or hasRole('HR_ADMIN') or hasRole('SYSTEM_ADMIN')")
+    @Transactional(readOnly = true)
+    public List<UserResponse> getTeamPerformanceSummary() {
+        List<UserResponse> directReports = getMyDirectReports();
+
+        // Filter to only show users with performance data
+        return directReports.stream()
+                .filter(user -> user.getHasPerformanceData())
+                .collect(Collectors.toList());
+    }
+
     // Deactivate user - Only SYSTEM_ADMIN can deactivate users
     @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public void deactivateUser(Long userId) {
@@ -218,6 +253,30 @@ public class UserService {
     }
 
     // CUSTOM SECURITY METHODS
+
+    // Check if current user can access the target user (self or direct report)
+    public boolean canAccessUser(Long userId) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        // Can access own profile
+        if (currentUser.getId().equals(userId)) {
+            return true;
+        }
+
+        // Can access direct reports
+        return isMyDirectReport(userId);
+    }
+
+    // Check if the userId matches the current authenticated user
+    public boolean isCurrentUser(Long userId) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
+
+        return currentUser.getId().equals(userId);
+    }
 
     // Check if a user is a direct report of the current user
     public boolean isMyDirectReport(Long userId) {
@@ -257,21 +316,6 @@ public class UserService {
     }
 
     // PRIVATE HELPER METHODS
-
-    // Check if current user can access the target user (self or direct report)
-    public boolean canAccessUser(Long userId) {
-        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("Current user not found"));
-
-        // Can access own profile
-        if (currentUser.getId().equals(userId)) {
-            return true;
-        }
-
-        // Can access direct reports
-        return isMyDirectReport(userId);
-    }
 
     private UserResponse updateUserInternal(User user, UserUpdateRequest request) {
         // Update username if provided and not duplicate
@@ -343,6 +387,12 @@ public class UserService {
                 user.getActive(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
+                user.getCurrentPerformanceRating(),
+                user.getPerformanceRatingText(),
+                user.getLastReviewNotes(),
+                user.getLastReviewDate(),
+                user.getCurrentGoals(),
+                user.hasPerformanceData(),
                 directReportsCount
         );
     }

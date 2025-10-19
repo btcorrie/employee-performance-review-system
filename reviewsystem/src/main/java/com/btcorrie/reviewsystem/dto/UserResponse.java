@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,6 +22,14 @@ public class UserResponse {
     private Boolean active;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // PERFORMANCE FIELDS
+    private Integer currentPerformanceRating;
+    private String currentPerformanceRatingText; // "Exceeds Expectations", etc.
+    private String lastReviewNotes;
+    private LocalDate lastReviewDate;
+    private String currentGoals;
+    private Boolean hasPerformanceData;
 
     // Department info
     private DepartmentSummary department;
@@ -54,7 +63,10 @@ public class UserResponse {
     // Constructor without nested objects (for list responses)
     public UserResponse(Long id, String username, String email, String firstName,
                         String lastName, String fullName, String role, Boolean active,
-                        LocalDateTime createdAt, LocalDateTime updatedAt, Integer directReportsCount) {
+                        LocalDateTime createdAt, LocalDateTime updatedAt,
+                        Integer currentPerformanceRating, String currentPerformanceRatingText,
+                        String lastReviewNotes, LocalDate lastReviewDate, String currentGoals,
+                        Boolean hasPerformanceData, Integer directReportsCount) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -65,6 +77,12 @@ public class UserResponse {
         this.active = active;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.currentPerformanceRating = currentPerformanceRating;
+        this.currentPerformanceRatingText = currentPerformanceRatingText;
+        this.lastReviewNotes = lastReviewNotes;
+        this.lastReviewDate = lastReviewDate;
+        this.currentGoals = currentGoals;
+        this.hasPerformanceData = hasPerformanceData;
         this.directReportsCount = directReportsCount;
     }
 }

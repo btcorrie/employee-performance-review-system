@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -51,7 +52,7 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    // NEW RELATIONSHIPS
+    // EXISTING RELATIONSHIPS
 
     // Many users belong to one department
     @ManyToOne(fetch = FetchType.LAZY)
@@ -70,6 +71,24 @@ public class User {
     // One user can manage many departments
     @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Department> managedDepartments;
+
+    // PERFORMANCE TRACKING FIELDS
+
+    // Overall performance rating (1-5 scale, null if never reviewed)
+    @Column(name = "current_performance_rating")
+    private Integer currentPerformanceRating;
+
+    // Latest review feedback/notes
+    @Column(name = "last_review_notes", length = 2000)
+    private String lastReviewNotes;
+
+    // Date of most recent performance review
+    @Column(name = "last_review_date")
+    private LocalDate lastReviewDate;
+
+    // Current goals and objectives (simple text field)
+    @Column(name = "current_goals", length = 1000)
+    private String currentGoals;
 
     // Enum for user roles
     public enum Role {
@@ -92,5 +111,26 @@ public class User {
     // Helper method to check if user has admin privileges
     public boolean isAdmin() {
         return role == Role.HR_ADMIN || role == Role.SYSTEM_ADMIN;
+    }
+
+    // Helper method to check if user has performance data
+    public boolean hasPerformanceData() {
+        return currentPerformanceRating != null ||
+                lastReviewNotes != null ||
+                lastReviewDate != null ||
+                currentGoals != null;
+    }
+
+    // Helper method to get performance rating as string
+    public String getPerformanceRatingText() {
+        if (currentPerformanceRating == null) return "Not Rated";
+        return switch (currentPerformanceRating) {
+            case 1 -> "Needs Improvement";
+            case 2 -> "Below Expectations";
+            case 3 -> "Meets Expectations";
+            case 4 -> "Exceeds Expectations";
+            case 5 -> "Outstanding";
+            default -> "Invalid Rating";
+        };
     }
 }
